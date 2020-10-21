@@ -1,0 +1,86 @@
+# Build docker image from docker file (using latest base PyTorch image from NVIDIA GPU Cloud)
+
+docker build -f ./docker/lsv/Dockerfile --build-arg USER_UID=$UID --build-arg USER_NAME=$(id -un) -t transformers:latest .
+
+# Launch docker container from docker image (LSV cluster) for VS Code development
+
+docker run -it --rm --runtime=nvidia --ipc=host --user=mmosbach \
+    --name transformers-dev \
+    -v ~/projects/transformers:/transformers \
+    -v /data/users/mmosbach/pre-trained-transformers:/pre-trained-transformers \
+    -v /data/users/mmosbach/datasets:/datasets \
+    -v /data/users/mmosbach/logs/transformers/logfiles:/logfiles \
+    -v /data/users/mmosbach/logs/transformers/checkpoints:/checkpoints \
+    -v /data/users/mmosbach/logs/transformers/tb-logs:/tb-logs \
+    -v /data/users/mmosbach/logs/transformers/wandb-logs:/wandb-logs \
+    transformers:latest
+
+
+# Launch docker container from docker image (LSV cluster) as root
+
+docker run -it --rm --runtime=nvidia --pid=host --ipc=host \
+    -v ~/projects/transformers:/transformers \
+    -v /data/users/mmosbach/pre-trained-transformers:/pre-trained-transformers \
+    -v /data/users/mmosbach/datasets:/datasets \
+    -v /data/users/mmosbach/logs/transformers/logfiles:/logfiles \
+    -v /data/users/mmosbach/logs/transformers/checkpoints:/checkpoints \
+    -v /data/users/mmosbach/logs/transformers/tb-logs:/tb-logs \
+    -v /data/users/mmosbach/logs/transformers/wandb-logs:/wandb-logs \
+    transformers:latest
+
+# Launch docker container from docker image (LSV cluster) as mmosbach
+
+docker run -it --rm --runtime=nvidia --pid=host --ipc=host --user=mmosbach \
+    -v ~/projects/transformers:/transformers \
+    -v /data/users/mmosbach/pre-trained-transformers:/pre-trained-transformers \
+    -v /data/users/mmosbach/datasets:/datasets \
+    -v /data/users/mmosbach/logs/transformers/logfiles:/logfiles \
+    -v /data/users/mmosbach/logs/transformers/checkpoints:/checkpoints \
+    -v /data/users/mmosbach/logs/transformers/tb-logs:/tb-logs \
+    -v /data/users/mmosbach/logs/transformers/wandb-logs:/wandb-logs \
+    transformers:latest
+
+# Launch docker container from docker image (CS cluster) as root
+
+docker run -it --rm --runtime=nvidia --pid=host --ipc=host \
+    -v ~/projects/transformers:/transformers \
+    -v /raid/mmosbach/pre-trained-transformers:/pre-trained-transformers \
+    -v /raid/mmosbach/datasets:/datasets \
+    -v /raid/mmosbach/logs/transformers/logfiles:/logfiles \
+    -v /raid/mmosbach/logs/transformers/checkpoints:/checkpoints \
+    -v /raid/mmosbach/logs/transformers/tb-logs:/tb-logs \
+    -v /raid/mmosbach/logs/transformers/wandb-logs:/wandb-logs \
+    transformers:latest
+
+
+# Launch docker container from docker image (CS cluster) as mmosbach
+
+docker run -it --rm --runtime=nvidia --pid=host --ipc=host --user=mmosbach \
+    -v ~/projects/transformers:/transformers \
+    -v /raid/mmosbach/pre-trained-transformers:/pre-trained-transformers \
+    -v /raid/mmosbach/datasets:/datasets \
+    -v /raid/mmosbach/logs/transformers/logfiles:/logfiles \
+    -v /raid/mmosbach/logs/transformers/checkpoints:/checkpoints \
+    -v /raid/mmosbach/logs/transformers/tb-logs:/tb-logs \
+    -v /raid/mmosbach/logs/transformers/wandb-logs:/wandb-logs \
+    transformers:latest
+
+# For latest docker version (19.03)
+
+docker run -it --rm --gpus=all --pid=host --ipc=host --user=mmosbach \
+    -v ~/projects/transformers:/transformers \
+    -v /data/users/mmosbach/pre-trained-transformers:/pre-trained-transformers \
+    -v /data/users/mmosbach/datasets:/datasets \
+    -v /data/users/mmosbach/logs/transformers/logfiles:/logfiles \
+    -v /data/users/mmosbach/logs/transformers/checkpoints:/checkpoints \
+    -v /data/users/mmosbach/logs/transformers/tb-logs:/tb-logs \
+    -v /data/users/mmosbach/logs/transformers/wandb-logs:/wandb-logs \
+    transformers:latest
+
+
+######################################
+# Install hugginface transformers
+######################################
+
+export PYTHONPATH="$PYTHONPATH:/transformers"
+python3 -m pip install -e . --user
