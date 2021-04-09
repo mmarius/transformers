@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import tempfile
 import unittest
 
@@ -21,10 +20,11 @@ import timeout_decorator  # noqa
 
 from parameterized import parameterized
 from transformers import is_torch_available
-from transformers.file_utils import WEIGHTS_NAME, cached_property
+from transformers.file_utils import cached_property
 from transformers.testing_utils import require_sentencepiece, require_tokenizers, require_torch, slow, torch_device
 
 from .test_configuration_common import ConfigTester
+from .test_generation_utils import GenerationTesterMixin
 from .test_modeling_common import ModelTesterMixin, ids_tensor
 
 
@@ -32,7 +32,7 @@ if is_torch_available():
     import torch
 
     from transformers import FSMTConfig, FSMTForConditionalGeneration, FSMTModel, FSMTTokenizer
-    from transformers.modeling_fsmt import (
+    from transformers.models.fsmt.modeling_fsmt import (
         SinusoidalPositionalEmbedding,
         _prepare_fsmt_decoder_inputs,
         invert_mask,
@@ -111,22 +111,29 @@ def prepare_fsmt_inputs_dict(
     config,
     input_ids,
     attention_mask=None,
+    head_mask=None,
+    decoder_head_mask=None,
 ):
     if attention_mask is None:
         attention_mask = input_ids.ne(config.pad_token_id)
+    if head_mask is None:
+        head_mask = torch.ones(config.encoder_layers, config.encoder_attention_heads, device=torch_device)
+    if decoder_head_mask is None:
+        decoder_head_mask = torch.ones(config.decoder_layers, config.decoder_attention_heads, device=torch_device)
     return {
         "input_ids": input_ids,
         "attention_mask": attention_mask,
+        "head_mask": head_mask,
+        "decoder_head_mask": decoder_head_mask,
     }
 
 
 @require_torch
-class FSMTModelTest(ModelTesterMixin, unittest.TestCase):
+class FSMTModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
     all_model_classes = (FSMTModel, FSMTForConditionalGeneration) if is_torch_available() else ()
     all_generative_model_classes = (FSMTForConditionalGeneration,) if is_torch_available() else ()
     is_encoder_decoder = True
     test_pruning = False
-    test_head_masking = False
     test_missing_keys = False
 
     def setUp(self):
@@ -203,8 +210,9 @@ class FSMTModelTest(ModelTesterMixin, unittest.TestCase):
         )[0]
         _assert_tensors_equal(decoder_features_with_long_encoder_mask, decoder_features_with_created_mask)
 
-    def test_save_load_strict(self):
+    def test_save_load_missing_keys(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs()
+
         for model_class in self.all_model_classes:
             model = model_class(config)
 
@@ -213,26 +221,19 @@ class FSMTModelTest(ModelTesterMixin, unittest.TestCase):
                 model2, info = model_class.from_pretrained(tmpdirname, output_loading_info=True)
             self.assertEqual(info["missing_keys"], [])
 
-    def test_save_load_no_save_keys(self):
+    @unittest.skip("Test has a segmentation fault on torch 1.8.0")
+    def test_export_to_onnx(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs()
-        for model_class in self.all_model_classes:
-            model = model_class(config)
-
-            state_dict_no_save_keys = getattr(model, "state_dict_no_save_keys", None)
-            if state_dict_no_save_keys is None:
-                continue
-
-            # check the keys are in the original state_dict
-            for k in state_dict_no_save_keys:
-                self.assertIn(k, model.state_dict())
-
-            # check that certain keys didn't get saved with the model
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                model.save_pretrained(tmpdirname)
-                output_model_file = os.path.join(tmpdirname, WEIGHTS_NAME)
-                state_dict_saved = torch.load(output_model_file)
-                for k in state_dict_no_save_keys:
-                    self.assertNotIn(k, state_dict_saved)
+        model = FSMTModel(config).to(torch_device)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            torch.onnx.export(
+                model,
+                (inputs_dict["input_ids"], inputs_dict["attention_mask"]),
+                f"{tmpdirname}/fsmt_test.onnx",
+                export_params=True,
+                opset_version=12,
+                input_names=["input_ids", "attention_mask"],
+            )
 
     @unittest.skip("can't be implemented for FSMT due to dual vocab.")
     def test_resize_tokens_embeddings(self):
@@ -246,15 +247,9 @@ class FSMTModelTest(ModelTesterMixin, unittest.TestCase):
     def test_tie_model_weights(self):
         pass
 
-    # def test_auto_model(self):
-    #     # XXX: add a tiny model to s3?
-    #     model_name = "facebook/wmt19-ru-en-tiny"
-    #     tiny = AutoModel.from_pretrained(model_name)  # same vocab size
-    #     tok = AutoTokenizer.from_pretrained(model_name)  # same tokenizer
-    #     inputs_dict = tok.batch_encode_plus(["Hello my friends"], return_tensors="pt")
-
-    #     with torch.no_grad():
-    #         tiny(**inputs_dict)
+    @unittest.skip("TODO: Decoder embeddings cannot be resized at the moment")
+    def test_resize_embeddings_untied(self):
+        pass
 
 
 @require_torch
@@ -279,7 +274,6 @@ class FSMTHeadTests(unittest.TestCase):
             eos_token_id=2,
             pad_token_id=1,
             bos_token_id=0,
-            return_dict=True,
         )
 
     def _get_config_and_data(self):
@@ -371,10 +365,9 @@ def _assert_tensors_equal(a, b, atol=1e-12, prefix=""):
             return True
         raise
     except Exception:
-        msg = "{} != {}".format(a, b)
-        if prefix:
-            msg = prefix + ": " + msg
-        raise AssertionError(msg)
+        if len(prefix) > 0:
+            prefix = f"{prefix}: "
+        raise AssertionError(f"{prefix}{a} != {b}")
 
 
 def _long_tensor(tok_lst):

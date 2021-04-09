@@ -1,3 +1,15 @@
+.. 
+    Copyright 2020 The HuggingFace Team. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+    the License. You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+    an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations under the License.
+
 BertGeneration
 -----------------------------------------------------------------------------------------------------------------------
 
@@ -10,7 +22,7 @@ Tasks <https://arxiv.org/abs/1907.12461>`__ by Sascha Rothe, Shashi Narayan, Ali
 
 The abstract from the paper is the following:
 
-*Unsupervised pre-training of large neural models has recently revolutionized Natural Language Processing. By
+*Unsupervised pretraining of large neural models has recently revolutionized Natural Language Processing. By
 warm-starting from the publicly released checkpoints, NLP practitioners have pushed the state-of-the-art on multiple
 benchmarks while saving significant amounts of compute time. So far the focus has been mainly on the Natural Language
 Understanding tasks. In this paper, we demonstrate the efficacy of pre-trained checkpoints for Sequence Generation. We
@@ -24,15 +36,15 @@ Usage:
 - The model can be used in combination with the :class:`~transformers.EncoderDecoderModel` to leverage two pretrained
   BERT checkpoints for subsequent fine-tuning.
 
-:: code-block
-  
+.. code-block::
+
   # leverage checkpoints for Bert2Bert model...
   # use BERT's cls token as BOS token and sep token as EOS token
   encoder = BertGenerationEncoder.from_pretrained("bert-large-uncased", bos_token_id=101, eos_token_id=102)
   # add cross attention layers and use BERT's cls token as BOS token and sep token as EOS token
   decoder = BertGenerationDecoder.from_pretrained("bert-large-uncased", add_cross_attention=True, is_decoder=True, bos_token_id=101, eos_token_id=102)
   bert2bert = EncoderDecoderModel(encoder=encoder, decoder=decoder)
-  
+
   # create tokenizer...
   tokenizer = BertTokenizer.from_pretrained("bert-large-uncased")
 
@@ -40,14 +52,14 @@ Usage:
   labels = tokenizer('This is a short summary', return_tensors="pt").input_ids
 
   # train...
-  loss = bert2bert(input_ids=input_ids, decoder_input_ids=labels, labels=labels, return_dict=True).loss
+  loss = bert2bert(input_ids=input_ids, decoder_input_ids=labels, labels=labels).loss
   loss.backward()
 
 
 - Pretrained :class:`~transformers.EncoderDecoderModel` are also directly available in the model hub, e.g.,
 
 
-:: code-block
+.. code-block::
 
   # instantiate sentence fusion model
   sentence_fuser = EncoderDecoderModel.from_pretrained("google/roberta2roberta_L-24_discofuse")
