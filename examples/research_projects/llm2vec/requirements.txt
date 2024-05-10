@@ -5,3 +5,4 @@ scipy
 ipywidgets
 pandas
 ipykernel
+flash_attn
